@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'scan_api_client.dart';
@@ -1641,7 +1642,14 @@ class ScanProgressSheet extends StatelessWidget {
                       color: const Color(0xFF4B1DFF),
                       borderRadius: BorderRadius.circular(16),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Close'),
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
                     )
                   else
                     const CupertinoActivityIndicator(radius: 14),
@@ -1800,7 +1808,14 @@ class _BoundaryCorrectionSheetState extends State<BoundaryCorrectionSheet> {
                             : () => Navigator.of(context).pop(
                                 BoundaryCorrectionOutcome.confirmed(boundary),
                               ),
-                        child: const Text('Confirm boundary'),
+                        child: const Text(
+                          'Confirm boundary',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
                       ),
                       CupertinoButton(
                         minimumSize: const Size(0, 42),
@@ -2253,7 +2268,14 @@ class _ManualCardLookupSheetState extends State<ManualCardLookupSheet> {
                           onPressed: _selected == null
                               ? null
                               : () => Navigator.of(context).pop(_selected),
-                          child: const Text('Confirm'),
+                          child: const Text(
+                            'Confirm',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -3683,14 +3705,34 @@ class _PassportSheetState extends State<PassportSheet> {
         if (!mounted) {
           return;
         }
-        await showCupertinoModalPopup<void>(
-          context: context,
-          builder: (context) =>
-              SharePreviewSheet(imageBase64: result.imageBase64),
+        final shareResult = await SharePlus.instance.share(
+          ShareParams(
+            title: 'Should I Slab This passport',
+            text: 'Made with shouldislabthis.com',
+            files: [
+              XFile.fromData(
+                imageBytesFromBase64(result.imageBase64),
+                name: 'should-i-slab-this-passport.png',
+                mimeType: 'image/png',
+              ),
+            ],
+            fileNameOverrides: const ['should-i-slab-this-passport.png'],
+            downloadFallbackEnabled: false,
+          ),
         );
+        if (!mounted) {
+          return;
+        }
+        if (shareResult.status == ShareResultStatus.unavailable) {
+          _showMessage('Browser sharing is not available here');
+        } else if (shareResult.status == ShareResultStatus.dismissed) {
+          _showMessage('Share cancelled');
+        } else {
+          _showMessage('Share sheet opened');
+        }
       } catch (error) {
         if (mounted) {
-          _showMessage('Could not generate share card');
+          _showMessage('Could not open browser share');
         }
       }
       return;
@@ -3910,7 +3952,14 @@ class SharePreviewSheet extends StatelessWidget {
                     color: const Color(0xFF4B1DFF),
                     borderRadius: BorderRadius.circular(16),
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Done'),
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -4464,14 +4513,21 @@ class PassportActionButton extends StatelessWidget {
           width: double.infinity,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F1FF),
+            color: const Color(0xFF4B1DFF),
             borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4B1DFF).withValues(alpha: 0.22),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: const Color(0xFF4B1DFF), size: 22),
+              Icon(icon, color: Colors.white, size: 22),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -4480,7 +4536,7 @@ class PassportActionButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Color(0xFF4B1DFF),
+                    color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                     height: 1,
