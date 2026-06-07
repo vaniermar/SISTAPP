@@ -42,7 +42,7 @@ jobs:
         run: >
           flutter build web
           --pwa-strategy=none
-          --base-href /SISTAPP/
+          --base-href /
           --dart-define=SIST_API_BASE_URL=https://marvanier-sistapp.hf.space
 
       - name: Upload Pages artifact
