@@ -12,7 +12,11 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(430, 932));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(const ShouldISlabThisApp());
+    await tester.pumpWidget(
+      ShouldISlabThisApp(
+        samplePassportLoader: () async => CardPassport.sample(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Should I Slab This'), findsOneWidget);
@@ -22,7 +26,7 @@ void main() {
     await tester.tap(find.text('See a Sample Passport'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Lunar Phantom EX'), findsOneWidget);
+    expect(find.text('Pikachu ex - 277/217'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     expect(find.text('Add to Binder'), findsOneWidget);
 
@@ -44,13 +48,13 @@ void main() {
     expect(find.text('Collections'), findsOneWidget);
     expect(find.text('All Cards'), findsOneWidget);
     expect(find.text('Wishlist'), findsOneWidget);
-    expect(find.text('Lunar Phantom EX'), findsOneWidget);
+    expect(find.text('Pikachu ex - 277/217'), findsOneWidget);
 
     await tester.tap(find.text('Wishlist').first);
     await tester.pumpAndSettle();
 
     expect(find.text('1 card'), findsWidgets);
-    expect(find.text('Lunar Phantom EX'), findsWidgets);
+    expect(find.text('Pikachu ex - 277/217'), findsWidgets);
   });
 
   testWidgets('lookup cards show scan action without passport metrics', (

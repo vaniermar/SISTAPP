@@ -19,7 +19,9 @@ void main() {
 }
 
 class ShouldISlabThisApp extends StatelessWidget {
-  const ShouldISlabThisApp({super.key});
+  const ShouldISlabThisApp({this.samplePassportLoader, super.key});
+
+  final Future<CardPassport> Function()? samplePassportLoader;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,7 @@ class ShouldISlabThisApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const HomeShell(),
+      home: HomeShell(samplePassportLoader: samplePassportLoader),
     );
   }
 }
@@ -138,6 +140,9 @@ enum CardRecordType {
 }
 
 typedef ScanLauncher = Future<void> Function({CardPassport? sourceLookup});
+typedef SamplePassportLoader = Future<CardPassport> Function();
+
+const samplePikachuAssetPath = 'assets/samples/pika.png';
 
 class CardPassport {
   CardPassport({
@@ -169,22 +174,59 @@ class CardPassport {
   factory CardPassport.sample() {
     final now = DateTime.now();
     return CardPassport(
-      id: 'sample-lunar-phantom-ex',
+      id: 'sample-pikachu-ex-277-217',
       recordType: CardRecordType.passport,
-      name: 'Lunar Phantom EX',
-      set: 'Midnight Eclipse',
-      number: '087/162',
+      externalApiId: '676089',
+      productId: 676089,
+      name: 'Pikachu ex - 277/217',
+      set: 'ME: Ascended Heroes',
+      number: '277/217',
       year: '2026',
-      marketValue: '\$180 - \$240',
-      rarity: 'Ultra Rare',
-      condition: const CardCondition(grade: 'A', label: 'Near Mint'),
+      marketValue: '\$465.85 market',
+      imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/676089_200w.jpg',
+      rarity: 'Special Illustration Rare',
+      marketSubtype: 'Holofoil',
+      tcgplayerUrl:
+          'https://www.tcgplayer.com/product/676089/pokemon-me-ascended-heroes-pikachu-ex-277-217',
+      condition: const CardCondition(grade: 'S', label: 'Gem Mint'),
       centering: const CardCentering(
-        topBottom: '49/51',
-        leftRight: '48/52',
-        tilt: '1.2%',
+        topBottom: '46/54',
+        leftRight: '46/54',
+        tilt: '0.1%',
       ),
-      source: 'Sample passport',
+      source: 'Live sample scan',
       confidenceLabel: 'High',
+      tintValue: 0xFF4B1DFF,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  factory CardPassport.samplePikachuLookup() {
+    final now = DateTime.now();
+    return CardPassport(
+      id: 'tcg-676089',
+      recordType: CardRecordType.lookup,
+      externalApiId: '676089',
+      productId: 676089,
+      name: 'Pikachu ex - 277/217',
+      set: 'ME: Ascended Heroes',
+      number: '277/217',
+      year: '2026',
+      marketValue: '\$465.85 market',
+      imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/676089_200w.jpg',
+      rarity: 'Special Illustration Rare',
+      marketSubtype: 'Holofoil',
+      tcgplayerUrl:
+          'https://www.tcgplayer.com/product/676089/pokemon-me-ascended-heroes-pikachu-ex-277-217',
+      source: 'Live TCG Tracking',
+      confidenceLabel: 'Known sample card',
+      condition: const CardCondition(grade: 'TBD', label: 'Needs scan'),
+      centering: const CardCentering(
+        topBottom: '--',
+        leftRight: '--',
+        tilt: '--',
+      ),
       tintValue: 0xFF4B1DFF,
       createdAt: now,
       updatedAt: now,
@@ -407,6 +449,19 @@ String conditionLabelForRank(String rank) {
 }
 
 final List<CardPassport> dummyPassports = [CardPassport.sample()];
+
+CardBoundary samplePikachuBoundary() {
+  return CardBoundary.fromCorners(
+    topLeft: const BoundaryPoint(x: 183.0, y: 290.4789123535156),
+    topRight: const BoundaryPoint(x: 829.8284912109375, y: 295.4354553222656),
+    bottomRight: const BoundaryPoint(x: 819.7543334960938, y: 1202.10888671875),
+    bottomLeft: const BoundaryPoint(x: 183.0, y: 1191.8387451171875),
+    imageWidth: 1080,
+    imageHeight: 1440,
+    segmentationConfidence: 0.78125,
+    cardAreaRatio: 0.37309,
+  );
+}
 
 class BinderCard {
   BinderCard({required this.passport, required this.addedAt});
@@ -1166,7 +1221,9 @@ CardCandidate candidateFromPassport(CardPassport passport) {
 }
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
+  const HomeShell({this.samplePassportLoader, super.key});
+
+  final SamplePassportLoader? samplePassportLoader;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -1395,6 +1452,57 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
+  Future<void> _openSamplePassport() async {
+    if (widget.samplePassportLoader != null) {
+      final passport = await widget.samplePassportLoader!();
+      if (mounted) {
+        _openPassport(passport);
+      }
+      return;
+    }
+
+    _showScanProgress();
+    try {
+      _setScanProgress(
+        'Loading sample scan',
+        'Preparing the Pikachu ex sample image.',
+      );
+      final data = await rootBundle.load(samplePikachuAssetPath);
+      final bytes = data.buffer.asUint8List();
+      final sourceLookup = CardPassport.samplePikachuLookup();
+
+      _setScanProgress(
+        'Rectifying sample',
+        'Sending the tested boundary to the backend.',
+      );
+      final rectified = await _scanClient.rectifyImage(
+        originalImageBase64: imageDataUriFromBytes(bytes),
+        boundary: samplePikachuBoundary(),
+      );
+
+      _setScanProgress(
+        'Running XFeat',
+        'Checking centering against the known card.',
+      );
+      final centering = await _scanClient.analyzeCentering(
+        rectifiedImageBase64: rectified.base64,
+        match: candidateFromPassport(sourceLookup),
+      );
+
+      _finishPassport(
+        _passportService.createPassportFromBackend(
+          sourceLookup: sourceLookup,
+          rectifiedImageBase64: rectified.base64,
+          centering: centering,
+        ),
+      );
+    } on ScanApiException catch (error) {
+      _showScanError(error.message);
+    } catch (error) {
+      _showScanError('Sample scan failed. ${error.toString()}');
+    }
+  }
+
   Future<String?> _rectifyFromManualBoundary({
     required Uint8List bytes,
     SegmentationResult? segmentation,
@@ -1513,8 +1621,8 @@ class _HomeShellState extends State<HomeShell> {
         searchController: _searchController,
         latestScan: _latestScan,
         onScan: _pickScanImage,
+        onSamplePassport: _openSamplePassport,
         onOpenPassport: _openPassport,
-        passportService: _passportService,
       ),
       BinderPage(binderStore: _binderStore, onOpenPassport: _openPassport),
     ];
@@ -2407,8 +2515,8 @@ class HomePage extends StatefulWidget {
     required this.searchController,
     required this.latestScan,
     required this.onScan,
+    required this.onSamplePassport,
     required this.onOpenPassport,
-    required this.passportService,
     super.key,
   });
 
@@ -2416,8 +2524,8 @@ class HomePage extends StatefulWidget {
   final TextEditingController searchController;
   final CardPassport? latestScan;
   final ScanLauncher onScan;
+  final Future<void> Function() onSamplePassport;
   final ValueChanged<CardPassport> onOpenPassport;
-  final PassportDataService passportService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -2601,13 +2709,7 @@ class _HomePageState extends State<HomePage> {
                       SamplePassportCard(
                         compact: compact,
                         passport: dummyPassports.first,
-                        onTap: () async {
-                          final passport = await widget.passportService
-                              .getSamplePassport();
-                          if (mounted) {
-                            widget.onOpenPassport(passport);
-                          }
-                        },
+                        onTap: widget.onSamplePassport,
                       ),
                     ],
                   ],
