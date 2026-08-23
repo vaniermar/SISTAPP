@@ -36,6 +36,31 @@ void main() {
     expect(results.first.name, 'Arceus VSTAR');
   });
 
+  test('one throttled set does not fail an otherwise empty search', () async {
+    final api = TcgTrackingApi(
+      client: MockClient((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/3/sets')) {
+          return _jsonResponse({
+            'sets': [
+              _set(10, 'Current Set', 'CUR', '2026-01-01'),
+              _set(11, 'Older Set', 'OLD', '2025-01-01'),
+            ],
+          });
+        }
+        if (path.endsWith('/3/sets/10/cards')) {
+          return http.Response('Too many requests', 429);
+        }
+        if (path.endsWith('/3/sets/11/cards')) {
+          return _jsonResponse({'products': []});
+        }
+        return http.Response('Not found', 404);
+      }),
+    );
+
+    await expectLater(api.searchPokemon('PID'), completion(isEmpty));
+  });
+
   test('sample passport keeps scan-only condition fields in storage', () {
     final passport = CardPassport.sample();
     final stored = passport.toJson();
@@ -91,11 +116,11 @@ TcgTrackingApi _mockApi() {
         });
       }
 
-      if (path.endsWith('/3/sets/10')) {
+      if (path.endsWith('/3/sets/10/cards')) {
         return _jsonResponse({'products': []});
       }
 
-      if (path.endsWith('/3/sets/23651')) {
+      if (path.endsWith('/3/sets/23651/cards')) {
         return _jsonResponse({
           'products': [
             _product(
@@ -109,7 +134,7 @@ TcgTrackingApi _mockApi() {
         });
       }
 
-      if (path.endsWith('/3/sets/2948')) {
+      if (path.endsWith('/3/sets/2948/cards')) {
         return _jsonResponse({
           'products': [
             _product(
@@ -130,7 +155,7 @@ TcgTrackingApi _mockApi() {
         });
       }
 
-      if (path.endsWith('/3/sets/2867')) {
+      if (path.endsWith('/3/sets/2867/cards')) {
         return _jsonResponse({
           'products': [
             _product(250300, 'Ho-Oh', 'Ho Oh', '001/025', 'Holo Rare'),
@@ -138,7 +163,7 @@ TcgTrackingApi _mockApi() {
         });
       }
 
-      if (path.endsWith('/3/sets/1234')) {
+      if (path.endsWith('/3/sets/1234/cards')) {
         return _jsonResponse({
           'products': [
             _product(250301, 'Ho-Oh', 'Ho Oh', '001/017', 'Holo Rare'),

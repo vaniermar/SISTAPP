@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'binder_repository.dart';
 import 'scan_api_client.dart';
 import 'scan_models.dart';
 
@@ -83,6 +84,22 @@ class CardCondition {
   }
 }
 
+class CenteringTier {
+  const CenteringTier({
+    required this.grade,
+    required this.label,
+    required this.displayLabel,
+    required this.description,
+    this.tiltAffected = false,
+  });
+
+  final String grade;
+  final String label;
+  final String displayLabel;
+  final String description;
+  final bool tiltAffected;
+}
+
 class CardCentering {
   const CardCentering({
     required this.topBottom,
@@ -105,6 +122,128 @@ class CardCentering {
   Map<String, Object?> toJson() {
     return {'topBottom': topBottom, 'leftRight': leftRight, 'tilt': tilt};
   }
+
+  CenteringTier get tier => centeringTierFor(this);
+}
+
+CenteringTier centeringTierFor(CardCentering centering) {
+  final topBottom = _parseRatio(centering.topBottom);
+  final leftRight = _parseRatio(centering.leftRight);
+  final tilt = _parseTiltDegrees(centering.tilt);
+  if (topBottom == null || leftRight == null || tilt == null) {
+    return _tierForGrade('D');
+  }
+
+  final topBottomMax = math.max(topBottom.$1, topBottom.$2);
+  final leftRightMax = math.max(leftRight.$1, leftRight.$2);
+  final absoluteTilt = tilt.abs();
+  final grade = _gradeForCentering(
+    topBottomMax: topBottomMax,
+    leftRightMax: leftRightMax,
+    absoluteTilt: absoluteTilt,
+  );
+  final gradeWithoutTilt = _gradeForCentering(
+    topBottomMax: topBottomMax,
+    leftRightMax: leftRightMax,
+    absoluteTilt: 0,
+  );
+  return _tierForGrade(
+    grade,
+    tiltAffected: _tierRank(grade) > _tierRank(gradeWithoutTilt),
+  );
+}
+
+(double, double)? _parseRatio(String value) {
+  final parts = value.split('/');
+  if (parts.length != 2) {
+    return null;
+  }
+  final first = double.tryParse(parts[0].trim());
+  final second = double.tryParse(parts[1].trim());
+  if (first == null || second == null) {
+    return null;
+  }
+  return (first, second);
+}
+
+double? _parseTiltDegrees(String value) {
+  final cleaned = value.replaceAll(RegExp(r'[^0-9.\-]'), '').trim();
+  return double.tryParse(cleaned);
+}
+
+String _gradeForCentering({
+  required double topBottomMax,
+  required double leftRightMax,
+  required double absoluteTilt,
+}) {
+  if (topBottomMax <= 51 && leftRightMax <= 51 && absoluteTilt <= 0.3) {
+    return 'S';
+  }
+  if (topBottomMax <= 55 && leftRightMax <= 55 && absoluteTilt <= 1.0) {
+    return 'A';
+  }
+  if (topBottomMax <= 60 && leftRightMax <= 60 && absoluteTilt <= 1.5) {
+    return 'B';
+  }
+  if (topBottomMax <= 70 && leftRightMax <= 70 && absoluteTilt <= 3.0) {
+    return 'C';
+  }
+  return 'D';
+}
+
+CenteringTier _tierForGrade(String grade, {bool tiltAffected = false}) {
+  return switch (grade.toUpperCase()) {
+    'S' => CenteringTier(
+      grade: 'S',
+      label: 'Supreme',
+      displayLabel: 'S — Supreme',
+      tiltAffected: tiltAffected,
+      description:
+          'Dead-centered front. Black label potential centering, assuming the rest of the card is flawless.',
+    ),
+    'A' => CenteringTier(
+      grade: 'A',
+      label: 'Awesome',
+      displayLabel: 'A — Awesome',
+      tiltAffected: tiltAffected,
+      description:
+          'Great centering. Within PSA 10 centering range, but corners, edges, surface, and print quality still matter.',
+    ),
+    'B' => CenteringTier(
+      grade: 'B',
+      label: 'Bravo',
+      displayLabel: 'B — Bravo',
+      tiltAffected: tiltAffected,
+      description:
+          'Strong binder centering. It may still grade well, but centering is more likely to cap it below a 10.',
+    ),
+    'C' => CenteringTier(
+      grade: 'C',
+      label: 'Cool',
+      displayLabel: 'C — Cool',
+      tiltAffected: tiltAffected,
+      description:
+          'Looks good in a binder, but the centering is visibly off for grading.',
+    ),
+    _ => CenteringTier(
+      grade: 'D',
+      label: 'Dank',
+      displayLabel: 'D — Dank',
+      tiltAffected: tiltAffected,
+      description:
+          'A wild miscut appears. This is off-center enough to treat as a potential miscut/OC card.',
+    ),
+  };
+}
+
+int _tierRank(String grade) {
+  return switch (grade.toUpperCase()) {
+    'S' => 0,
+    'A' => 1,
+    'B' => 2,
+    'C' => 3,
+    _ => 4,
+  };
 }
 
 enum CardRecordType {
@@ -161,6 +300,10 @@ class CardPassport {
     required this.createdAt,
     required this.updatedAt,
     this.imageUrl,
+    this.localImageKey,
+    this.localThumbnailKey,
+    this.originalScanImageKey,
+    this.rectifiedScanImageKey,
     this.scannedImageBase64,
     this.shareImageBase64,
     this.rarity,
@@ -188,7 +331,7 @@ class CardPassport {
       marketSubtype: 'Holofoil',
       tcgplayerUrl:
           'https://www.tcgplayer.com/product/676089/pokemon-me-ascended-heroes-pikachu-ex-277-217',
-      condition: const CardCondition(grade: 'S', label: 'Gem Mint'),
+      condition: const CardCondition(grade: 'S', label: 'Supreme'),
       centering: const CardCentering(
         topBottom: '46/54',
         leftRight: '46/54',
@@ -261,6 +404,10 @@ class CardPassport {
           json['estimate'] as String? ??
           'Market unavailable',
       imageUrl: json['imageUrl'] as String?,
+      localImageKey: json['localImageKey'] as String?,
+      localThumbnailKey: json['localThumbnailKey'] as String?,
+      originalScanImageKey: json['originalScanImageKey'] as String?,
+      rectifiedScanImageKey: json['rectifiedScanImageKey'] as String?,
       scannedImageBase64: json['scannedImageBase64'] as String?,
       shareImageBase64: json['shareImageBase64'] as String?,
       rarity: json['rarity'] as String?,
@@ -292,6 +439,10 @@ class CardPassport {
   final String year;
   final String marketValue;
   final String? imageUrl;
+  final String? localImageKey;
+  final String? localThumbnailKey;
+  final String? originalScanImageKey;
+  final String? rectifiedScanImageKey;
   final String? scannedImageBase64;
   final String? shareImageBase64;
   final String? rarity;
@@ -316,6 +467,67 @@ class CardPassport {
 
   Color get tint => Color(tintValue);
 
+  CardPassport copyWith({
+    String? id,
+    CardRecordType? recordType,
+    String? cardId,
+    String? externalApiId,
+    int? productId,
+    String? name,
+    String? set,
+    String? number,
+    String? year,
+    String? marketValue,
+    String? imageUrl,
+    String? localImageKey,
+    String? localThumbnailKey,
+    String? originalScanImageKey,
+    String? rectifiedScanImageKey,
+    String? scannedImageBase64,
+    String? shareImageBase64,
+    String? rarity,
+    String? marketSubtype,
+    String? tcgplayerUrl,
+    String? source,
+    String? confidenceLabel,
+    CardCondition? condition,
+    CardCentering? centering,
+    int? tintValue,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return CardPassport(
+      id: id ?? this.id,
+      recordType: recordType ?? this.recordType,
+      cardId: cardId ?? this.cardId,
+      externalApiId: externalApiId ?? this.externalApiId,
+      productId: productId ?? this.productId,
+      name: name ?? this.name,
+      set: set ?? this.set,
+      number: number ?? this.number,
+      year: year ?? this.year,
+      marketValue: marketValue ?? this.marketValue,
+      imageUrl: imageUrl ?? this.imageUrl,
+      localImageKey: localImageKey ?? this.localImageKey,
+      localThumbnailKey: localThumbnailKey ?? this.localThumbnailKey,
+      originalScanImageKey: originalScanImageKey ?? this.originalScanImageKey,
+      rectifiedScanImageKey:
+          rectifiedScanImageKey ?? this.rectifiedScanImageKey,
+      scannedImageBase64: scannedImageBase64 ?? this.scannedImageBase64,
+      shareImageBase64: shareImageBase64 ?? this.shareImageBase64,
+      rarity: rarity ?? this.rarity,
+      marketSubtype: marketSubtype ?? this.marketSubtype,
+      tcgplayerUrl: tcgplayerUrl ?? this.tcgplayerUrl,
+      source: source ?? this.source,
+      confidenceLabel: confidenceLabel ?? this.confidenceLabel,
+      condition: condition ?? this.condition,
+      centering: centering ?? this.centering,
+      tintValue: tintValue ?? this.tintValue,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   Map<String, Object?> toJson() {
     return {
       'id': id,
@@ -329,6 +541,10 @@ class CardPassport {
       'year': year,
       'marketValue': marketValue,
       'imageUrl': imageUrl,
+      'localImageKey': localImageKey,
+      'localThumbnailKey': localThumbnailKey,
+      'originalScanImageKey': originalScanImageKey,
+      'rectifiedScanImageKey': rectifiedScanImageKey,
       'scannedImageBase64': scannedImageBase64,
       'shareImageBase64': shareImageBase64,
       'rarity': rarity,
@@ -393,13 +609,20 @@ class PassportDataService {
     CenteringAnalysis? centering,
   }) {
     final now = DateTime.now();
-    final rank = centering?.rank ?? 'A';
     final name = sourceLookup?.name ?? candidate?.name ?? 'Unknown Card';
     final set = sourceLookup?.set ?? candidate?.setName ?? 'Unknown Set';
     final number = sourceLookup?.number ?? candidate?.cardNumber ?? 'No number';
     final productId = int.tryParse(
       sourceLookup?.externalApiId ?? candidate?.id ?? '',
     );
+    final cardCentering = CardCentering(
+      topBottom: centering?.topBottom ?? '--',
+      leftRight: centering?.leftRight ?? '--',
+      tilt: centering == null
+          ? '--'
+          : '${centering.tiltPercent.toStringAsFixed(1)}%',
+    );
+    final tier = cardCentering.tier;
 
     return CardPassport(
       id: uniqueId('passport-${normalizeForSearch('$name-$number')}'),
@@ -422,14 +645,8 @@ class PassportDataService {
       tcgplayerUrl: sourceLookup?.tcgplayerUrl,
       source: 'Scanned card',
       confidenceLabel: centering?.confidence ?? 'Backend scan',
-      condition: CardCondition(grade: rank, label: conditionLabelForRank(rank)),
-      centering: CardCentering(
-        topBottom: centering?.topBottom ?? '--',
-        leftRight: centering?.leftRight ?? '--',
-        tilt: centering == null
-            ? '--'
-            : '${centering.tiltPercent.toStringAsFixed(1)}%',
-      ),
+      condition: CardCondition(grade: tier.grade, label: tier.label),
+      centering: cardCentering,
       tintValue: sourceLookup?.tintValue ?? 0xFF4B1DFF,
       createdAt: now,
       updatedAt: now,
@@ -437,14 +654,14 @@ class PassportDataService {
   }
 }
 
-String conditionLabelForRank(String rank) {
+String centeringLabelForRank(String rank) {
   return switch (rank.toUpperCase()) {
-    'S' => 'Gem Mint',
-    'A' => 'Near Mint',
-    'B' => 'Excellent',
-    'C' => 'Light Play',
-    'D' => 'Review Needed',
-    _ => 'Scan Assessed',
+    'S' => 'Supreme',
+    'A' => 'Awesome',
+    'B' => 'Bravo',
+    'C' => 'Cool',
+    'D' => 'Dank',
+    _ => 'Centering Check',
   };
 }
 
@@ -464,28 +681,101 @@ CardBoundary samplePikachuBoundary() {
 }
 
 class BinderCard {
-  BinderCard({required this.passport, required this.addedAt});
+  BinderCard({
+    required this.passport,
+    required this.addedAt,
+    String? localId,
+    this.schemaVersion = binderSchemaVersion,
+    this.collectionType = 'binder',
+    this.notes,
+  }) : localId = localId ?? passportIdentity(passport);
 
   factory BinderCard.fromJson(Map<String, dynamic> json) {
+    final passportJson = json['passport'];
+    final passport = passportJson is Map<String, dynamic>
+        ? CardPassport.fromJson(passportJson)
+        : CardPassport.fromJson(json);
     return BinderCard(
-      passport: CardPassport.fromJson(
-        (json['passport'] as Map<String, dynamic>? ?? {}),
-      ),
+      passport: passport,
       addedAt:
-          DateTime.tryParse(json['addedAt'] as String? ?? '') ?? DateTime.now(),
+          DateTime.tryParse(
+            json['addedAt'] as String? ?? json['savedAt'] as String? ?? '',
+          ) ??
+          DateTime.now(),
+      localId:
+          json['localId'] as String? ??
+          json['id'] as String? ??
+          passportIdentity(passport),
+      schemaVersion:
+          (json['schemaVersion'] as num?)?.toInt() ?? binderSchemaVersion,
+      collectionType: json['collectionType'] as String? ?? 'binder',
+      notes: json['notes'] as String?,
     );
   }
 
+  final String localId;
+  final int schemaVersion;
   final CardPassport passport;
   final DateTime addedAt;
+  final String collectionType;
+  final String? notes;
 
-  String get id => passportIdentity(passport);
+  String get id => localId;
 
   Map<String, Object?> toJson() {
+    final tier = passport.centering.tier;
+    final topBottom = _parseRatio(passport.centering.topBottom);
+    final leftRight = _parseRatio(passport.centering.leftRight);
+    final tilt = _parseTiltDegrees(passport.centering.tilt);
     return {
+      'localId': localId,
+      'schemaVersion': schemaVersion,
+      'cardId': passport.cardId ?? passport.externalApiId,
+      'name': passport.name,
+      'setName': passport.set,
+      'setId': passport.productId?.toString(),
+      'number': passport.number,
+      'rarity': passport.rarity,
+      'imageUrl': passport.imageUrl,
+      'localImageKey': passport.localImageKey,
+      'localThumbnailKey': passport.localThumbnailKey,
+      'originalScanImageKey': passport.originalScanImageKey,
+      'rectifiedScanImageKey': passport.rectifiedScanImageKey,
+      'marketValue': passport.marketValue,
+      'savedAt': addedAt.toIso8601String(),
+      'updatedAt': passport.updatedAt.toIso8601String(),
+      'source': passport.isPassport ? 'scan' : 'search',
+      'collectionType': collectionType,
+      'centeringTop': topBottom?.$1,
+      'centeringBottom': topBottom?.$2,
+      'centeringLeft': leftRight?.$1,
+      'centeringRight': leftRight?.$2,
+      'tiltDegrees': tilt,
+      'centeringTier': tier.grade,
+      'centeringLabel': tier.displayLabel,
+      'centeringDescription': tier.description,
+      'notes': notes,
       'passport': passport.toJson(),
       'addedAt': addedAt.toIso8601String(),
     };
+  }
+
+  BinderCard copyWith({
+    CardPassport? passport,
+    DateTime? addedAt,
+    String? localId,
+    int? schemaVersion,
+    String? collectionType,
+    String? notes,
+  }) {
+    return BinderCard(
+      passport: passport ?? this.passport,
+      addedAt: addedAt ?? this.addedAt,
+      localId: localId ?? this.localId,
+      schemaVersion: schemaVersion ?? this.schemaVersion,
+      collectionType: collectionType ?? this.collectionType,
+      notes: notes ?? this.notes,
+    );
   }
 }
 
@@ -503,6 +793,39 @@ class BinderCollection {
     return BinderCollection(
       id: BinderStore.wishlistCollectionId,
       name: 'Wishlist',
+      cards: [],
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  factory BinderCollection.binder() {
+    final now = DateTime.now();
+    return BinderCollection(
+      id: BinderStore.binderCollectionId,
+      name: 'Binder',
+      cards: [],
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  factory BinderCollection.gradingCandidate() {
+    final now = DateTime.now();
+    return BinderCollection(
+      id: BinderStore.gradingCandidateCollectionId,
+      name: 'Grading Candidate',
+      cards: [],
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
+  factory BinderCollection.tradeSell() {
+    final now = DateTime.now();
+    return BinderCollection(
+      id: BinderStore.tradeSellCollectionId,
+      name: 'Trade/Sell',
       cards: [],
       createdAt: now,
       updatedAt: now,
@@ -565,16 +888,23 @@ class BinderCollection {
 }
 
 class BinderStore extends ChangeNotifier {
-  BinderStore();
+  BinderStore({BinderRepository? repository})
+    : _repository = repository ?? createBinderRepository();
 
+  static const binderCollectionId = 'binder';
   static const wishlistCollectionId = 'wishlist';
+  static const gradingCandidateCollectionId = 'grading_candidate';
+  static const tradeSellCollectionId = 'trade_sell';
   static const _storageKey = 'sist.binder.collections.v1';
 
+  final BinderRepository _repository;
   SharedPreferences? _preferences;
   bool _isLoaded = false;
-  List<BinderCollection> _collections = [BinderCollection.wishlist()];
+  String? _saveError;
+  List<BinderCollection> _collections = _defaultCollections();
 
   bool get isLoaded => _isLoaded;
+  String? get saveError => _saveError;
   List<BinderCollection> get collections => List.unmodifiable(_collections);
 
   List<BinderCard> get allCards {
@@ -592,19 +922,25 @@ class BinderStore extends ChangeNotifier {
 
   Future<void> load() async {
     _preferences = await SharedPreferences.getInstance();
-    final raw = _preferences?.getString(_storageKey);
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(raw) as List<dynamic>;
-        _collections = decoded
+    try {
+      await _repository.initialize();
+      final savedCollections = await _repository.loadCollections();
+      if (savedCollections.isNotEmpty) {
+        _collections = savedCollections
             .whereType<Map<String, dynamic>>()
             .map(BinderCollection.fromJson)
             .toList();
-      } catch (_) {
-        _collections = [BinderCollection.wishlist()];
+      } else {
+        final migrated = _legacyCollections();
+        _collections = migrated.isEmpty ? _defaultCollections() : migrated;
+        await _save();
       }
+    } catch (_) {
+      final migrated = _legacyCollections();
+      _collections = migrated.isEmpty ? _defaultCollections() : migrated;
     }
-    _ensureWishlist();
+    _ensureDefaultCollections();
+    await _hydrateSavedImages();
     _isLoaded = true;
     notifyListeners();
   }
@@ -647,8 +983,15 @@ class BinderStore extends ChangeNotifier {
 
     final now = DateTime.now();
     final collection = _collections[index];
+    final collectionType = _collectionTypeForId(collection.id);
+    final prepared = await _prepareSavedPassport(passport);
     final cards = [
-      BinderCard(passport: passport, addedAt: now),
+      BinderCard(
+        passport: prepared,
+        addedAt: now,
+        localId: passportIdentity(passport),
+        collectionType: collectionType,
+      ),
       ...collection.cards,
     ];
     _collections = [
@@ -663,20 +1006,185 @@ class BinderStore extends ChangeNotifier {
     return true;
   }
 
-  Future<void> _save() async {
-    final data = jsonEncode(
-      _collections.map((collection) => collection.toJson()).toList(),
-    );
-    await _preferences?.setString(_storageKey, data);
+  Future<void> deleteCard(String localId) async {
+    _collections = [
+      for (final collection in _collections)
+        collection.copyWith(
+          cards: [
+            for (final card in collection.cards)
+              if (card.localId != localId) card,
+          ],
+          updatedAt: DateTime.now(),
+        ),
+    ];
+    await _repository.deleteCard(localId);
+    await _save();
+    notifyListeners();
   }
 
-  void _ensureWishlist() {
-    if (_collections.any(
-      (collection) => collection.id == wishlistCollectionId,
-    )) {
-      return;
+  Future<void> moveCardToCollection({
+    required String localId,
+    required String collectionType,
+  }) async {
+    BinderCard? target;
+    _collections = [
+      for (final collection in _collections)
+        collection.copyWith(
+          cards: [
+            for (final card in collection.cards)
+              if (card.localId == localId)
+                target = card.copyWith(collectionType: collectionType)
+              else
+                card,
+          ].whereType<BinderCard>().toList(),
+          updatedAt: DateTime.now(),
+        ),
+    ];
+    final destinationId = _collectionIdForType(collectionType);
+    final destinationIndex = _collections.indexWhere(
+      (collection) => collection.id == destinationId,
+    );
+    if (target != null && destinationIndex >= 0) {
+      final destination = _collections[destinationIndex];
+      if (!destination.cards.any((card) => card.localId == localId)) {
+        _collections[destinationIndex] = destination.copyWith(
+          cards: [target, ...destination.cards],
+          updatedAt: DateTime.now(),
+        );
+      }
     }
-    _collections = [BinderCollection.wishlist(), ..._collections];
+    await _repository.moveCardToCollection(localId, collectionType);
+    await _save();
+    notifyListeners();
+  }
+
+  Future<void> _save() async {
+    _saveError = null;
+    try {
+      final data = _collections
+          .map((collection) => collection.toJson())
+          .toList();
+      await _repository.saveCollections(data);
+      await _preferences?.setString(_storageKey, jsonEncode(data));
+    } catch (_) {
+      _saveError =
+          'Couldn’t save this card locally. Try freeing browser storage or saving fewer images.';
+    }
+  }
+
+  List<BinderCollection> _legacyCollections() {
+    final raw = _preferences?.getString(_storageKey);
+    if (raw == null || raw.isEmpty) {
+      return const [];
+    }
+    try {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(BinderCollection.fromJson)
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<CardPassport> _prepareSavedPassport(CardPassport passport) async {
+    final scannedImage = passport.scannedImageBase64;
+    if (scannedImage == null || scannedImage.isEmpty) {
+      return passport;
+    }
+    try {
+      final bytes = imageBytesFromBase64(scannedImage);
+      final payload = BinderImagePayload(bytes: bytes, mimeType: 'image/jpeg');
+      final imageKey =
+          passport.localImageKey ?? await _repository.saveImageBlob(payload);
+      final thumbnailKey =
+          passport.localThumbnailKey ??
+          await _repository.saveImageBlob(payload);
+      return passport.copyWith(
+        localImageKey: imageKey,
+        localThumbnailKey: thumbnailKey,
+        rectifiedScanImageKey: imageKey,
+      );
+    } catch (_) {
+      return passport;
+    }
+  }
+
+  Future<void> _hydrateSavedImages() async {
+    final hydrated = <BinderCollection>[];
+    for (final collection in _collections) {
+      final cards = <BinderCard>[];
+      for (final card in collection.cards) {
+        cards.add(card.copyWith(passport: await _hydratePassportImage(card)));
+      }
+      hydrated.add(collection.copyWith(cards: cards));
+    }
+    _collections = hydrated;
+  }
+
+  Future<CardPassport> _hydratePassportImage(BinderCard card) async {
+    final passport = card.passport;
+    if (passport.scannedImageBase64 != null) {
+      return passport;
+    }
+    final imageKey = passport.localThumbnailKey ?? passport.localImageKey;
+    if (imageKey == null || imageKey.isEmpty) {
+      return passport;
+    }
+    try {
+      final payload = passport.localThumbnailKey == null
+          ? await _repository.getCardImage(imageKey)
+          : await _repository.getCardThumbnail(imageKey);
+      if (payload == null) {
+        return passport;
+      }
+      return passport.copyWith(
+        scannedImageBase64: imageDataUriFromBytes(
+          payload.bytes,
+          mimeType: payload.mimeType,
+        ),
+      );
+    } catch (_) {
+      return passport;
+    }
+  }
+
+  void _ensureDefaultCollections() {
+    final defaults = _defaultCollections();
+    final existing = _collections.map((collection) => collection.id).toSet();
+    _collections = [
+      for (final collection in defaults)
+        if (!existing.contains(collection.id)) collection,
+      ..._collections,
+    ];
+  }
+
+  static List<BinderCollection> _defaultCollections() {
+    return [
+      BinderCollection.binder(),
+      BinderCollection.wishlist(),
+      BinderCollection.gradingCandidate(),
+      BinderCollection.tradeSell(),
+    ];
+  }
+
+  String _collectionTypeForId(String id) {
+    return switch (id) {
+      wishlistCollectionId => 'wishlist',
+      gradingCandidateCollectionId => 'grading_candidate',
+      tradeSellCollectionId => 'trade_sell',
+      _ => 'binder',
+    };
+  }
+
+  String _collectionIdForType(String type) {
+    return switch (type) {
+      'wishlist' => wishlistCollectionId,
+      'grading_candidate' => gradingCandidateCollectionId,
+      'trade_sell' => tradeSellCollectionId,
+      _ => binderCollectionId,
+    };
   }
 }
 
@@ -758,6 +1266,7 @@ class TcgTrackingApi {
 
   static const _baseUrl = 'https://tcgtracking.com/tcgapi/v1';
   static const _pokemonCategory = 3;
+  static const _requestTimeout = Duration(seconds: 10);
   final http.Client _client;
   List<PokemonSet>? _sets;
   final Map<int, List<PokemonProduct>> _productsBySet = {};
@@ -849,20 +1358,31 @@ class TcgTrackingApi {
       return cached;
     }
 
-    final json = await _getJsonOrNull(
-      '$_baseUrl/$_pokemonCategory/sets/${set.id}',
-    );
-    if (json == null) {
-      _productsBySet[set.id] = const [];
+    Map<String, dynamic>? json;
+    try {
+      json = await _getJsonOrNull(
+        '$_baseUrl/$_pokemonCategory/sets/${set.id}/cards',
+      );
+    } catch (_) {
+      // A single stale or throttled set must not fail the entire card search.
       return const [];
     }
-    final products = (json['products'] as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((product) => PokemonProduct.fromJson(product, set))
-        .where((product) => !product.name.toLowerCase().startsWith('code card'))
-        .toList();
-    _productsBySet[set.id] = products;
-    return products;
+    if (json == null) {
+      return const [];
+    }
+    try {
+      final products = (json['products'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((product) => PokemonProduct.fromJson(product, set))
+          .where(
+            (product) => !product.name.toLowerCase().startsWith('code card'),
+          )
+          .toList();
+      _productsBySet[set.id] = products;
+      return products;
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<Map<int, PokemonPrice?>> _getPrices(int setId) async {
@@ -871,24 +1391,33 @@ class TcgTrackingApi {
       return cached;
     }
 
-    final json = await _getJsonOrNull(
-      '$_baseUrl/$_pokemonCategory/sets/$setId/pricing',
-    );
-    if (json == null) {
-      _pricesBySet[setId] = const {};
+    Map<String, dynamic>? json;
+    try {
+      json = await _getJsonOrNull(
+        '$_baseUrl/$_pokemonCategory/sets/$setId/pricing',
+      );
+    } catch (_) {
+      // Pricing is supplementary; card results should still be usable without it.
       return const {};
     }
-    final rawPrices = (json['prices'] as Map<String, dynamic>? ?? {});
-    final prices = <int, PokemonPrice?>{};
-    for (final entry in rawPrices.entries) {
-      prices[int.parse(entry.key)] = _bestPrice(entry.value);
+    if (json == null) {
+      return const {};
     }
-    _pricesBySet[setId] = prices;
-    return prices;
+    try {
+      final rawPrices = (json['prices'] as Map<String, dynamic>? ?? {});
+      final prices = <int, PokemonPrice?>{};
+      for (final entry in rawPrices.entries) {
+        prices[int.parse(entry.key)] = _bestPrice(entry.value);
+      }
+      _pricesBySet[setId] = prices;
+      return prices;
+    } catch (_) {
+      return const {};
+    }
   }
 
   Future<Map<String, dynamic>> _getJson(String url) async {
-    final response = await _client.get(Uri.parse(url));
+    final response = await _client.get(Uri.parse(url)).timeout(_requestTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('TCG Tracking request failed: ${response.statusCode}');
     }
@@ -896,7 +1425,7 @@ class TcgTrackingApi {
   }
 
   Future<Map<String, dynamic>?> _getJsonOrNull(String url) async {
-    final response = await _client.get(Uri.parse(url));
+    final response = await _client.get(Uri.parse(url)).timeout(_requestTimeout);
     if (response.statusCode == 404) {
       return null;
     }
@@ -2562,7 +3091,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() => _isSearching = true);
-    _debounce = Timer(const Duration(milliseconds: 280), () {
+    _debounce = Timer(const Duration(milliseconds: 500), () {
       _runSearch(trimmed);
     });
   }
@@ -3961,7 +4490,7 @@ class _PassportSheetState extends State<PassportSheet> {
                           ),
                           if (passport.isPassport) ...[
                             const SizedBox(width: 14),
-                            ConditionBadge(condition: passport.condition),
+                            CenteringTierBadge(centering: passport.centering),
                           ],
                         ],
                       ),
@@ -4218,26 +4747,27 @@ class PassportPlaceholderArt extends StatelessWidget {
   }
 }
 
-class ConditionBadge extends StatelessWidget {
-  const ConditionBadge({required this.condition, super.key});
+class CenteringTierBadge extends StatelessWidget {
+  const CenteringTierBadge({required this.centering, super.key});
 
-  final CardCondition condition;
+  final CardCentering centering;
 
   @override
   Widget build(BuildContext context) {
+    final tier = centering.tier;
     return Container(
-      width: 84,
+      width: 98,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF9F0),
+        color: const Color(0xFFF4F1FF),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
           Text(
-            condition.grade,
+            tier.grade,
             style: const TextStyle(
-              color: Color(0xFF2B8A43),
+              color: Color(0xFF4B1DFF),
               fontSize: 23,
               fontWeight: FontWeight.w900,
               decoration: TextDecoration.none,
@@ -4245,10 +4775,10 @@ class ConditionBadge extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            condition.label,
+            tier.label,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFF2B8A43),
+              color: Color(0xFF4B1DFF),
               fontSize: 12,
               fontWeight: FontWeight.w800,
               decoration: TextDecoration.none,
@@ -4308,21 +4838,7 @@ class PassportInfoPanel extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Divider(height: 1, color: Color(0xFFE5E5EA)),
             ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: PassportInfoTile(
-                    icon: CupertinoIcons.checkmark_seal_fill,
-                    label: 'Condition',
-                    value:
-                        '${passport.condition.grade} · ${passport.condition.label}',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: CenteringBlock(centering: passport.centering)),
-              ],
-            ),
+            CenteringBlock(centering: passport.centering),
           ] else if (passport.hasLookupMetadata) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
@@ -4460,25 +4976,42 @@ class CenteringBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tier = centering.tier;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(CupertinoIcons.scope, color: Color(0xFF4B1DFF), size: 24),
-            SizedBox(width: 7),
+            const Icon(
+              CupertinoIcons.scope,
+              color: Color(0xFF4B1DFF),
+              size: 24,
+            ),
+            const SizedBox(width: 7),
+            const Expanded(
+              child: Text(
+                'Centering',
+                style: TextStyle(
+                  color: Color(0xFF72718E),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
             Text(
-              'Centering',
-              style: TextStyle(
-                color: Color(0xFF72718E),
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+              tier.displayLabel,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFF4B1DFF),
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
                 decoration: TextDecoration.none,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -4488,6 +5021,30 @@ class CenteringBlock extends StatelessWidget {
             CenteringPill(label: 'Tilt', value: centering.tilt),
           ],
         ),
+        const SizedBox(height: 12),
+        Text(
+          tier.description,
+          style: const TextStyle(
+            color: Color(0xFF11123E),
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+            decoration: TextDecoration.none,
+          ),
+        ),
+        if (tier.tiltAffected) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Tilt affected this centering tier.',
+            style: TextStyle(
+              color: Color(0xFF72718E),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -4502,7 +5059,7 @@ class CenteringPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 72,
+      width: 84,
       padding: const EdgeInsets.symmetric(vertical: 9),
       decoration: BoxDecoration(
         color: const Color(0xFFF4F1FF),
