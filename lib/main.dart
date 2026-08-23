@@ -4233,6 +4233,7 @@ class CardThumbnail extends StatelessWidget {
             height: height,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.low,
+            webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
             errorBuilder: (context, error, stackTrace) {
               return CardThumbnailFallback(passport: passport, size: size);
             },
@@ -4631,6 +4632,7 @@ class PassportLargeImage extends StatelessWidget {
                     passport.imageUrl!,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.medium,
+                    webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                     errorBuilder: (context, error, stackTrace) {
                       return PassportPlaceholderArt(passport: passport);
                     },
