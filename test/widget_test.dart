@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,4 +114,84 @@ void main() {
     expect(find.text('Centering'), findsNothing);
     expect(find.text('TBD · Needs scan'), findsNothing);
   });
+
+  testWidgets('changing a query immediately removes stale card results', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final api = _DelayedSearchApi();
+    final searchController = TextEditingController();
+    addTearDown(searchController.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomePage(
+            api: api,
+            searchController: searchController,
+            latestScan: null,
+            onScan: ({sourceLookup}) async {},
+            onSamplePassport: () async {},
+            onOpenPassport: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(CupertinoSearchTextField), 'pidgeotto');
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(api.requests, hasLength(1));
+
+    await tester.enterText(
+      find.byType(CupertinoSearchTextField),
+      'pidgeotto 208',
+    );
+    api.requests.first.complete([_lookup('Pidgeotto - 197/091', '197/091')]);
+    await tester.pump();
+
+    expect(find.text('Pidgeotto - 197/091'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(api.requests, hasLength(2));
+    api.requests.last.complete([_lookup('Pidgeotto - 208/197', '208/197')]);
+    await tester.pump();
+
+    expect(find.text('Pidgeotto - 208/197'), findsOneWidget);
+  });
+}
+
+class _DelayedSearchApi extends TcgTrackingApi {
+  final List<Completer<List<CardPassport>>> requests = [];
+
+  @override
+  Future<List<CardPassport>> searchPokemon(String rawQuery) {
+    final request = Completer<List<CardPassport>>();
+    requests.add(request);
+    return request.future;
+  }
+}
+
+CardPassport _lookup(String name, String number) {
+  final now = DateTime(2026, 8, 23);
+  return CardPassport(
+    id: 'tcg-$number',
+    recordType: CardRecordType.lookup,
+    name: name,
+    set: 'SV03: Obsidian Flames',
+    number: number,
+    year: '2023',
+    marketValue: r'$12.04 market',
+    condition: const CardCondition(grade: 'TBD', label: 'Needs scan'),
+    centering: const CardCentering(
+      topBottom: '--',
+      leftRight: '--',
+      tilt: '--',
+    ),
+    source: 'Live TCG Tracking',
+    confidenceLabel: 'API result',
+    createdAt: now,
+    updatedAt: now,
+  );
 }

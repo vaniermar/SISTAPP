@@ -3075,29 +3075,26 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onSearchChanged(String value) {
+    final run = ++_searchRun;
+    final trimmed = value.trim();
+    _debounce?.cancel();
     setState(() {
       _query = value;
+      _results = const [];
       _searchError = null;
+      _isSearching = trimmed.length >= 2;
     });
 
-    _debounce?.cancel();
-    final trimmed = value.trim();
     if (trimmed.length < 2) {
-      setState(() {
-        _results = const [];
-        _isSearching = false;
-      });
       return;
     }
 
-    setState(() => _isSearching = true);
     _debounce = Timer(const Duration(milliseconds: 500), () {
-      _runSearch(trimmed);
+      _runSearch(trimmed, run);
     });
   }
 
-  Future<void> _runSearch(String query) async {
-    final run = ++_searchRun;
+  Future<void> _runSearch(String query, int run) async {
     try {
       final results = await widget.api.searchPokemon(query);
       if (!mounted || run != _searchRun) {
