@@ -32,6 +32,7 @@ class ShouldISlabThisApp extends StatelessWidget {
     return MaterialApp(
       title: 'Should I Slab This',
       debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -47,6 +48,7 @@ class ShouldISlabThisApp extends StatelessWidget {
       builder: (context, child) {
         return CupertinoTheme(
           data: const CupertinoThemeData(
+            brightness: Brightness.light,
             primaryColor: Color(0xFF4B1DFF),
             scaffoldBackgroundColor: Color(0xFFF7F7FB),
             textTheme: CupertinoTextThemeData(
@@ -456,7 +458,8 @@ class CardPassport {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  String get estimate => marketValue;
+  String get estimate =>
+      marketValue.replaceFirst(RegExp(r'\s+market$', caseSensitive: false), '');
   String get gradePotential => condition.label;
   String get confidence => source ?? confidenceLabel ?? 'Unknown source';
   bool get isPassport => recordType == CardRecordType.passport;
@@ -466,6 +469,8 @@ class CardPassport {
   }
 
   Color get tint => Color(tintValue);
+  String? get detailImageUrl =>
+      highResolutionCardImageUrl(imageUrl: imageUrl, productId: productId);
 
   CardPassport copyWith({
     String? id,
@@ -559,6 +564,26 @@ class CardPassport {
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
+}
+
+String? highResolutionCardImageUrl({String? imageUrl, int? productId}) {
+  if (productId != null) {
+    return 'https://cdn.tcgtracking.com/product/${productId}_1000w.jpg';
+  }
+  if (imageUrl == null || imageUrl.isEmpty) {
+    return null;
+  }
+
+  final uri = Uri.tryParse(imageUrl);
+  if (uri == null) {
+    return imageUrl;
+  }
+  final productMatch = RegExp(r'/product/(\d+)_200w\.').firstMatch(uri.path);
+  final matchedId = productMatch?.group(1);
+  if (matchedId == null) {
+    return imageUrl;
+  }
+  return 'https://cdn.tcgtracking.com/product/${matchedId}_1000w.jpg';
 }
 
 class PassportDataService {
@@ -2269,7 +2294,7 @@ class ScanProgressSheet extends StatelessWidget {
                     state.message,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF72718E),
+                      color: const Color(0xFF5F5E78),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -2399,7 +2424,7 @@ class _BoundaryCorrectionSheetState extends State<BoundaryCorrectionSheet> {
                         boundaryReasonCopy(widget.reason),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF72718E),
+                          color: const Color(0xFF5F5E78),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -2839,7 +2864,7 @@ class _ManualCardLookupSheetState extends State<ManualCardLookupSheet> {
                         'Search and pick the exact card before generating the passport.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: const Color(0xFF72718E),
+                          color: const Color(0xFF5F5E78),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -3183,7 +3208,7 @@ class _HomePageState extends State<HomePage> {
                         fontWeight: FontWeight.w500,
                       ),
                       placeholderStyle: const TextStyle(
-                        color: Color(0xFF77748A),
+                        color: Color(0xFF66637C),
                         fontSize: 17,
                         fontWeight: FontWeight.w400,
                       ),
@@ -3227,7 +3252,7 @@ class _HomePageState extends State<HomePage> {
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
                               fontSize: compact ? 15 : 16,
-                              color: const Color(0xFF72718E),
+                              color: const Color(0xFF5F5E78),
                               fontWeight: FontWeight.w500,
                             ),
                       ),
@@ -3485,7 +3510,7 @@ class SamplePassportCard extends StatelessWidget {
                       'Try it in seconds',
                       style: TextStyle(
                         fontSize: compact ? 15 : 16,
-                        color: const Color(0xFF72718E),
+                        color: const Color(0xFF5F5E78),
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -3633,7 +3658,7 @@ class BinderPage extends StatelessWidget {
                           : '${allCards.length} saved card${allCards.length == 1 ? '' : 's'}',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF72718E),
+                        color: const Color(0xFF5F5E78),
                       ),
                     ),
                     const SizedBox(height: 26),
@@ -3674,7 +3699,7 @@ class BinderPage extends StatelessWidget {
                           '${allCards.length}',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
-                                color: const Color(0xFF72718E),
+                                color: const Color(0xFF5F5E78),
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -3805,7 +3830,7 @@ class BinderCollectionCard extends StatelessWidget {
                 Text(
                   '${collection.cards.length} card${collection.cards.length == 1 ? '' : 's'}',
                   style: const TextStyle(
-                    color: Color(0xFF72718E),
+                    color: Color(0xFF5F5E78),
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -3859,7 +3884,7 @@ class BinderEmptyState extends StatelessWidget {
             'Open a card or passport and add it to Binder.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF72718E),
+              color: const Color(0xFF5F5E78),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -3976,7 +4001,7 @@ class BinderGalleryCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF72718E),
+                  color: Color(0xFF5F5E78),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   height: 1.15,
@@ -3988,7 +4013,7 @@ class BinderGalleryCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF188A4C),
+                  color: Color(0xFF146F3D),
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                 ),
@@ -4082,7 +4107,7 @@ class BinderCollectionSheet extends StatelessWidget {
                   '${cards.length} card${cards.length == 1 ? '' : 's'}',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFF72718E),
+                    color: const Color(0xFF5F5E78),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -4154,7 +4179,7 @@ class PassportListTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF72718E),
+                        color: Color(0xFF5F5E78),
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -4163,7 +4188,7 @@ class PassportListTile extends StatelessWidget {
                       passport.estimate,
                       style: const TextStyle(
                         fontSize: 16,
-                        color: Color(0xFF188A4C),
+                        color: Color(0xFF146F3D),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -4370,7 +4395,7 @@ class _PassportSheetState extends State<PassportSheet> {
     await Clipboard.setData(
       ClipboardData(
         text:
-            '${widget.passport.name} · ${widget.passport.set} ${widget.passport.number} · ${widget.passport.marketValue}',
+            '${widget.passport.name} · ${widget.passport.set} ${widget.passport.number} · ${widget.passport.estimate}',
       ),
     );
     _showMessage('Passport copied');
@@ -4468,13 +4493,13 @@ class _PassportSheetState extends State<PassportSheet> {
                                   'Market Value',
                                   style: Theme.of(context).textTheme.labelLarge
                                       ?.copyWith(
-                                        color: const Color(0xFF72718E),
+                                        color: const Color(0xFF5F5E78),
                                         fontWeight: FontWeight.w800,
                                       ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  passport.marketValue,
+                                  passport.estimate,
                                   style: Theme.of(context)
                                       .textTheme
                                       .headlineSmall
@@ -4605,36 +4630,225 @@ class PassportLargeImage extends StatelessWidget {
 
   final CardPassport passport;
 
+  Future<void> _openViewer(BuildContext context) {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close card image',
+      barrierColor: const Color(0xFF070815).withValues(alpha: 0.96),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return CardImageViewer(passport: passport);
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final availableWidth = math.max(190.0, viewport.width - 48);
+    final shortScreenWidth = math.max(
+      190.0,
+      (viewport.height * 0.92 - 245) * 0.72,
+    );
+    final imageWidth = math.min(
+      380.0,
+      math.min(availableWidth, shortScreenWidth),
+    );
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 340),
+        constraints: BoxConstraints(maxWidth: imageWidth),
         child: AspectRatio(
           aspectRatio: 0.72,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: passport.scannedImageBase64 != null
-                ? Image.memory(
-                    imageBytesFromBase64(passport.scannedImageBase64!),
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.medium,
-                    errorBuilder: (context, error, stackTrace) {
-                      return PassportPlaceholderArt(passport: passport);
-                    },
-                  )
-                : passport.imageUrl == null
-                ? PassportPlaceholderArt(passport: passport)
-                : Image.network(
-                    passport.imageUrl!,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.medium,
-                    webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                    errorBuilder: (context, error, stackTrace) {
-                      return PassportPlaceholderArt(passport: passport);
-                    },
+          child: Semantics(
+            button: true,
+            label: 'View full-size image of ${passport.name}',
+            child: GestureDetector(
+              onTap: () => _openViewer(context),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: PassportCardImage(
+                      passport: passport,
+                      useHighResolution: true,
+                    ),
                   ),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: CupertinoButton(
+                      minimumSize: const Size(44, 44),
+                      padding: EdgeInsets.zero,
+                      borderRadius: BorderRadius.circular(22),
+                      color: const Color(0xFF11123E).withValues(alpha: 0.82),
+                      onPressed: () => _openViewer(context),
+                      child: const Icon(
+                        CupertinoIcons.fullscreen,
+                        color: Colors.white,
+                        size: 21,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class PassportCardImage extends StatelessWidget {
+  const PassportCardImage({
+    required this.passport,
+    required this.useHighResolution,
+    this.fit = BoxFit.contain,
+    super.key,
+  });
+
+  final CardPassport passport;
+  final bool useHighResolution;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final scannedImage = passport.scannedImageBase64;
+    if (scannedImage != null) {
+      return Image.memory(
+        imageBytesFromBase64(scannedImage),
+        fit: fit,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (context, error, stackTrace) {
+          return PassportPlaceholderArt(passport: passport);
+        },
+      );
+    }
+
+    final primaryUrl = useHighResolution
+        ? passport.detailImageUrl
+        : passport.imageUrl;
+    if (primaryUrl == null) {
+      return PassportPlaceholderArt(passport: passport);
+    }
+    final fallbackUrl = primaryUrl == passport.imageUrl
+        ? null
+        : passport.imageUrl;
+    return ResilientNetworkCardImage(
+      primaryUrl: primaryUrl,
+      fallbackUrl: fallbackUrl,
+      fit: fit,
+      fallbackBuilder: (context) => PassportPlaceholderArt(passport: passport),
+    );
+  }
+}
+
+class ResilientNetworkCardImage extends StatelessWidget {
+  const ResilientNetworkCardImage({
+    required this.primaryUrl,
+    required this.fit,
+    required this.fallbackBuilder,
+    this.fallbackUrl,
+    super.key,
+  });
+
+  final String primaryUrl;
+  final String? fallbackUrl;
+  final BoxFit fit;
+  final WidgetBuilder fallbackBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildNetworkImage(context, primaryUrl, fallbackUrl);
+  }
+
+  Widget _buildNetworkImage(BuildContext context, String url, String? nextUrl) {
+    return Image.network(
+      url,
+      fit: fit,
+      filterQuality: FilterQuality.high,
+      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) {
+          return child;
+        }
+        return const ColoredBox(
+          color: Color(0xFFF0EEF7),
+          child: Center(child: CupertinoActivityIndicator(radius: 13)),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        if (nextUrl != null && nextUrl != url) {
+          return _buildNetworkImage(context, nextUrl, null);
+        }
+        return fallbackBuilder(context);
+      },
+    );
+  }
+}
+
+class CardImageViewer extends StatelessWidget {
+  const CardImageViewer({required this.passport, super.key});
+
+  final CardPassport passport;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final width = math.min(viewport.width - 32, 720.0);
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 5,
+                boundaryMargin: const EdgeInsets.all(80),
+                child: Center(
+                  child: SizedBox(
+                    width: width,
+                    child: AspectRatio(
+                      aspectRatio: 0.72,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: PassportCardImage(
+                          passport: passport,
+                          useHighResolution: true,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 12,
+              child: Semantics(
+                button: true,
+                label: 'Close full-size card image',
+                child: CupertinoButton(
+                  minimumSize: const Size(48, 48),
+                  padding: EdgeInsets.zero,
+                  borderRadius: BorderRadius.circular(24),
+                  color: Colors.white.withValues(alpha: 0.14),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Icon(
+                    CupertinoIcons.xmark,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -4796,6 +5010,7 @@ class PassportInfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final useRows = MediaQuery.sizeOf(context).width < 430;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -4805,33 +5020,58 @@ class PassportInfoPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: PassportInfoTile(
-                  icon: CupertinoIcons.layers_alt_fill,
-                  label: 'Set',
-                  value: passport.set,
+          if (useRows) ...[
+            PassportInfoRow(
+              icon: CupertinoIcons.layers_alt_fill,
+              label: 'Set',
+              value: passport.set,
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, color: Color(0xFFE5E5EA)),
+            ),
+            PassportInfoRow(
+              icon: CupertinoIcons.number,
+              label: 'Number',
+              value: passport.number,
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, color: Color(0xFFE5E5EA)),
+            ),
+            PassportInfoRow(
+              icon: CupertinoIcons.star_fill,
+              label: 'Rarity',
+              value: passport.rarity ?? 'Unknown',
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: PassportInfoTile(
+                    icon: CupertinoIcons.layers_alt_fill,
+                    label: 'Set',
+                    value: passport.set,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: PassportInfoTile(
-                  icon: CupertinoIcons.number,
-                  label: 'Number',
-                  value: passport.number,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PassportInfoTile(
+                    icon: CupertinoIcons.number,
+                    label: 'Number',
+                    value: passport.number,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: PassportInfoTile(
-                  icon: CupertinoIcons.star_fill,
-                  label: 'Rarity',
-                  value: passport.rarity ?? 'Unknown',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PassportInfoTile(
+                    icon: CupertinoIcons.star_fill,
+                    label: 'Rarity',
+                    value: passport.rarity ?? 'Unknown',
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           if (passport.isPassport) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
@@ -4847,6 +5087,59 @@ class PassportInfoPanel extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class PassportInfoRow extends StatelessWidget {
+  const PassportInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF4B1DFF), size: 22),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 62,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF5F5E78),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Color(0xFF11123E),
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              height: 1.2,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -4895,7 +5188,7 @@ class LookupMetadataRow extends StatelessWidget {
           child: Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF72718E),
+              color: Color(0xFF5F5E78),
               fontSize: 14,
               fontWeight: FontWeight.w700,
               decoration: TextDecoration.none,
@@ -4945,7 +5238,7 @@ class PassportInfoTile extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF72718E),
+            color: Color(0xFF5F5E78),
             fontSize: 13,
             fontWeight: FontWeight.w700,
             decoration: TextDecoration.none,
@@ -4991,7 +5284,7 @@ class CenteringBlock extends StatelessWidget {
               child: Text(
                 'Centering',
                 style: TextStyle(
-                  color: Color(0xFF72718E),
+                  color: Color(0xFF5F5E78),
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   decoration: TextDecoration.none,
@@ -5036,7 +5329,7 @@ class CenteringBlock extends StatelessWidget {
           const Text(
             'Tilt affected this centering tier.',
             style: TextStyle(
-              color: Color(0xFF72718E),
+              color: Color(0xFF5F5E78),
               fontSize: 12,
               fontWeight: FontWeight.w700,
               height: 1.2,
@@ -5069,7 +5362,7 @@ class CenteringPill extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF72718E),
+              color: Color(0xFF5F5E78),
               fontSize: 12,
               fontWeight: FontWeight.w800,
               decoration: TextDecoration.none,
@@ -5312,7 +5605,7 @@ class _AddToBinderSheetState extends State<AddToBinderSheet> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFF72718E),
+                        color: const Color(0xFF5F5E78),
                       ),
                     ),
                     const SizedBox(height: 22),
@@ -5436,7 +5729,7 @@ class AddToCollectionTile extends StatelessWidget {
                   Text(
                     '${collection.cards.length} card${collection.cards.length == 1 ? '' : 's'}',
                     style: const TextStyle(
-                      color: Color(0xFF72718E),
+                      color: Color(0xFF5F5E78),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -5517,7 +5810,7 @@ class MetricPill extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: const Color(0xFF72718E),
+              color: const Color(0xFF5F5E78),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -5555,7 +5848,7 @@ class InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF72718E),
+                color: const Color(0xFF5F5E78),
                 fontWeight: FontWeight.w600,
               ),
             ),

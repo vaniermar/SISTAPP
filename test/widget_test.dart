@@ -8,6 +8,28 @@ import 'package:sist_flutter/scan_api_client.dart';
 import 'package:sist_flutter/main.dart';
 
 void main() {
+  testWidgets('system dark mode keeps the app on its readable light palette', (
+    WidgetTester tester,
+  ) async {
+    tester.binding.platformDispatcher.platformBrightnessTestValue =
+        Brightness.dark;
+    addTearDown(
+      tester.binding.platformDispatcher.clearPlatformBrightnessTestValue,
+    );
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(
+      ShouldISlabThisApp(
+        samplePassportLoader: () async => CardPassport.sample(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.text('Should I Slab This'));
+    expect(Theme.of(context).brightness, Brightness.light);
+    expect(CupertinoTheme.of(context).brightness, Brightness.light);
+  });
+
   testWidgets('sample passport can be saved into binder collections', (
     WidgetTester tester,
   ) async {
@@ -29,7 +51,7 @@ void main() {
     await tester.tap(find.text('See a Sample Passport'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Pikachu ex - 277/217'), findsOneWidget);
+    expect(find.text('Pikachu ex - 277/217'), findsWidgets);
     expect(find.text('Share'), findsOneWidget);
     expect(find.text('Add to Binder'), findsOneWidget);
 
@@ -106,7 +128,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Pikachu ex - 238/191'), findsOneWidget);
+    expect(find.text('Pikachu ex - 238/191'), findsWidgets);
     expect(find.text('Scan'), findsOneWidget);
     expect(find.text('Add to Binder'), findsOneWidget);
     expect(find.text('Share'), findsNothing);

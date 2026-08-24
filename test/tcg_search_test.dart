@@ -12,7 +12,7 @@ void main() {
 
     expect(results, hasLength(1));
     expect(results.single.name, 'Pikachu ex - 238/191');
-    expect(results.single.estimate, r'$337.11 market');
+    expect(results.single.estimate, r'$337.11');
     expect(results.single.recordType, CardRecordType.lookup);
     expect(results.single.isLookup, isTrue);
 
@@ -69,6 +69,22 @@ void main() {
     expect(stored['recordType'], 'passport');
     expect(stored.containsKey('condition'), isTrue);
     expect(stored.containsKey('centering'), isTrue);
+  });
+
+  test('selected cards use high-resolution artwork', () {
+    expect(
+      highResolutionCardImageUrl(
+        imageUrl: 'https://cdn.tcgtracking.com/product/509956_200w.jpg',
+        productId: 509956,
+      ),
+      'https://cdn.tcgtracking.com/product/509956_1000w.jpg',
+    );
+    expect(
+      highResolutionCardImageUrl(
+        imageUrl: 'https://tcgplayer-cdn.tcgplayer.com/product/509956_200w.jpg',
+      ),
+      'https://cdn.tcgtracking.com/product/509956_1000w.jpg',
+    );
   });
 
   test('scan candidates hydrate market value from raw product payload', () {
