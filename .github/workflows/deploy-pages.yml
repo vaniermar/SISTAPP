@@ -42,6 +42,7 @@ jobs:
         run: >
           flutter build web
           --pwa-strategy=none
+          --no-tree-shake-icons
           --base-href /
           --dart-define=SIST_API_BASE_URL=https://marvanier-sistapp.hf.space
 
